@@ -6,13 +6,12 @@
 #include <mutex>
 #include <sstream>
 #include <string_view>
-#include <thread>
 
 namespace utils::log {
 
 namespace details {
 
-/// Synchronizes stdout output.
+/// Synchronizes stdout output. Usage: SyncPrint{} << message;
 class SyncPrint: public std::ostringstream
 {
     static std::mutex m_printMutex;
@@ -20,7 +19,7 @@ class SyncPrint: public std::ostringstream
 public:
     ~SyncPrint() override
     {
-        std::lock_guard<std::mutex> g(m_printMutex);
+        std::lock_guard<std::mutex> g {m_printMutex};
         std::cout << this->str();
     }
 };

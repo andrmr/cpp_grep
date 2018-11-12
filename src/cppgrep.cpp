@@ -11,10 +11,13 @@ namespace fs = std::filesystem;
 using namespace utils;
 
 static constexpr auto DEFAULT_CHUNK_SIZE {262144L}; //!< Default chunk size, in bytes.
-static constexpr auto MAX_PATTERN_SIZE {128U};      //!< Max pattern size, in characters. Source: requirements
+static constexpr auto MAX_PATTERN_SIZE {128U};      //!< Max pattern size, in characters.
 
 void grep_file(const fs::path &file_path, std::string_view pattern)
 {
+    // todo: avoid a thread pool when grepping a single file which fits into a chunk
+    // todo: restrict search within chunk limits for the prefix/suffix requirement
+
     static utils::tp::ThreadPool thread_pool {};
     static const auto searcher   = std::boyer_moore_searcher(pattern.begin(), pattern.end());
     static const auto chunk_size = std::max(static_cast<decltype(DEFAULT_CHUNK_SIZE)>(pattern.size()), DEFAULT_CHUNK_SIZE);
@@ -27,7 +30,7 @@ void grep_file(const fs::path &file_path, std::string_view pattern)
             auto chunk = std::vector<char>(chunk_size);
             stream.read(&chunk[0], chunk_size);
 
-            auto task = [=, chunk{std::move(chunk)}, offset{stream.gcount()}] {
+            auto task = [=, chunk {std::move(chunk)}, offset {stream.gcount()}] {
                 for (auto chunk_pos = chunk.begin(), chunk_end = chunk.begin() + offset;
                      chunk_pos = std::search(chunk_pos, chunk_end, searcher), chunk_pos != chunk_end;
                      chunk_pos += pattern.size())
@@ -40,7 +43,6 @@ void grep_file(const fs::path &file_path, std::string_view pattern)
             thread_pool.add_task(task);
 
             // overlap chunks, in case there's a match in between
-            // todo: figure out how to get the postfix in between chunks; consider padding
             stream.seekg(1 - static_cast<std::streamoff>(pattern.size()), std::ios_base::cur);
             ++chunk_count;
         }
@@ -50,8 +52,10 @@ void grep_file(const fs::path &file_path, std::string_view pattern)
 
 void grep_dir(const fs::path &dir_path, std::string_view pattern)
 {
+    // note: range-for doesn't work if permission is denied
+
     std::error_code ec;
-    for (fs::recursive_directory_iterator it{dir_path}, end; it != end; it.increment(ec))
+    for (fs::recursive_directory_iterator it {dir_path}, end; it != end; it.increment(ec))
     {
         if (fs::is_regular_file(it->path()))
         {
@@ -60,7 +64,7 @@ void grep_dir(const fs::path &dir_path, std::string_view pattern)
     }
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     if (argc == 3)
     {
@@ -72,15 +76,18 @@ int main(int argc, char *argv[])
                     log::info("The path is a file. Searching...");
                     grep_file(path, pattern);
                     break;
+                
                 case fs::file_type::directory:
                     log::info("The path is a directory. Searching recursively...");
                     grep_dir(path, pattern);
                     break;
+                
                 case fs::file_type::none:
                 case fs::file_type::not_found:
                 case fs::file_type::unknown:
                     log::error("Invalid path!");
                     break;
+                
                 default:
                     log::error("Unsupported file type!");
             }
