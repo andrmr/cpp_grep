@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <vector>
 
 #include "logger.h"
@@ -13,10 +14,12 @@ using namespace utils;
 static constexpr auto DEFAULT_CHUNK_SIZE {262144L}; //!< Default chunk size, in bytes.
 static constexpr auto MAX_PATTERN_SIZE {128U};      //!< Max pattern size, in characters.
 
-void grep_file(const fs::path &file_path, std::string_view pattern)
+void grep_file(const fs::path& file_path, std::string_view pattern)
 {
-    // todo: avoid a thread pool when grepping a single file which fits into a chunk
+    // todo: avoid a thread pool when grepping a single file which fits into a single chunk
     // todo: restrict search within chunk limits for the prefix/suffix requirement
+    // todo: move the lambda's logic and the state it captures into a class, and process objects instead
+    // todo: limit the total amount of memory to queue as chunks; block the read thread if buffer is full
 
     static utils::tp::ThreadPool thread_pool {};
     static const auto searcher   = std::boyer_moore_searcher(pattern.begin(), pattern.end());
@@ -45,14 +48,13 @@ void grep_file(const fs::path &file_path, std::string_view pattern)
             // overlap chunks, in case there's a match in between
             stream.seekg(1 - static_cast<std::streamoff>(pattern.size()), std::ios_base::cur);
             ++chunk_count;
-        }
-        while (stream.gcount() == chunk_size);
+        } while (stream.gcount() == chunk_size);
     }
 }
 
-void grep_dir(const fs::path &dir_path, std::string_view pattern)
+void grep_dir(const fs::path& dir_path, std::string_view pattern)
 {
-    // note: range-for doesn't work if permission is denied
+    // note: range-for recursive iterator throws, if permission is denied
 
     std::error_code ec;
     for (fs::recursive_directory_iterator it {dir_path}, end; it != end; it.increment(ec))
@@ -64,42 +66,74 @@ void grep_dir(const fs::path &dir_path, std::string_view pattern)
     }
 }
 
+bool validate_pattern(std::string_view pattern)
+{
+    if (pattern.size() > MAX_PATTERN_SIZE)
+    {
+        log::error("Pattern size exceeds the limit: %u.", MAX_PATTERN_SIZE);
+        return false;
+    }
+
+    return true;
+}
+
+bool validate_path(const fs::path& path)
+{
+    try
+    {
+        if (!fs::exists(path))
+        {
+            log::error("The path doesn't exist!");
+            return false;
+        }
+    }
+    catch (fs::filesystem_error& e)
+    {
+        if (e.code() == std::errc::permission_denied)
+        {
+            log::error("Permission denied when accessing the path!");
+        }
+        else
+        {
+            log::error("Unable to access the path. Reason: %s", e.what());
+        }
+
+        return false;
+    }
+
+    if (!fs::is_regular_file(path) && !fs::is_directory(path))
+    {
+        log::error("The path must be a regular file or a directory!");
+        return false;
+    }
+
+    return true;
+}
+
 int main(int argc, char* argv[])
 {
     if (argc == 3)
     {
-        if (std::string_view pattern {argv[2]}; pattern.size() < MAX_PATTERN_SIZE)
+        fs::path path {argv[1]};
+        std::string_view pattern {argv[2]};
+
+        if (validate_pattern(pattern) && validate_path(path))
         {
-            switch (fs::path path {argv[1]}; fs::status(path).type())
+            if (fs::is_regular_file(path))
             {
-                case fs::file_type::regular:
-                    log::info("The path is a file. Searching...");
-                    grep_file(path, pattern);
-                    break;
-                
-                case fs::file_type::directory:
-                    log::info("The path is a directory. Searching recursively...");
-                    grep_dir(path, pattern);
-                    break;
-                
-                case fs::file_type::none:
-                case fs::file_type::not_found:
-                case fs::file_type::unknown:
-                    log::error("Invalid path!");
-                    break;
-                
-                default:
-                    log::error("Unsupported file type!");
+                log::info("The path is a regular file. Searching...");
+                grep_file(path, pattern);
             }
-        }
-        else
-        {
-            log::error("Pattern size exceeds the limit: %u.", MAX_PATTERN_SIZE);
+            else
+            {
+                log::info("The path is a directory. Searching recursively...");
+                grep_dir(path, pattern);
+            }
         }
     }
     else
     {
-        log::error("Invalid arguments!\n"
+        log::error("Two arguments are required!\n"
                    "Usage: cppgrep <path> <string>, where <path> is a file or "
                    "directory, and <string> is the text you're looking for.");
     }

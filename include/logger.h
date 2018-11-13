@@ -19,7 +19,7 @@ class SyncPrint: public std::ostringstream
 public:
     ~SyncPrint() override
     {
-        std::lock_guard<std::mutex> g {m_printMutex};
+        std::lock_guard g {m_printMutex};
         std::cout << this->str();
     }
 };
@@ -30,9 +30,9 @@ std::mutex SyncPrint::m_printMutex {};
 /// @returns unique_ptr buffer with the formatted output
 /// @todo output ERRFMT if arguments are mismatched
 template <typename... Args>
-inline auto format(std::string_view format, Args&&... args)
+inline std::unique_ptr<char[]> format(std::string_view format, Args&&... args)
 {
-    auto size = 1 + std::snprintf(nullptr, 0, format.data(), args...);
+    auto size   = 1 + std::snprintf(nullptr, 0, format.data(), args...);
     auto buffer = std::make_unique<char[]>(size);
     std::snprintf(buffer.get(), size, format.data(), args...);
 
@@ -45,15 +45,15 @@ inline void print_log(std::string_view log_type, std::string_view message, Args&
 {
     if constexpr (sizeof...(args) > 0)
     {
-        SyncPrint{} << log_type << format(message, std::forward<Args>(args)...).get() << '\n';
+        SyncPrint {} << log_type << format(message, std::forward<Args>(args)...).get() << '\n';
     }
     else
     {
-        SyncPrint{} << log_type << message << '\n';
+        SyncPrint {} << log_type << message << '\n';
     }
 }
 
-} // namespace utils::log::details
+} // namespace details
 
 /// Logs an error message.
 /// @param message - message or format with additional arguments

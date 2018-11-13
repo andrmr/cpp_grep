@@ -1,0 +1,82 @@
+DisableFormat: 'false'
+
+# language
+Language: Cpp
+Standard: Cpp11
+
+# brace
+Cpp11BracedListStyle: 'true'
+SpaceBeforeCpp11BracedList: 'true'
+
+# indent
+UseTab: Never
+NamespaceIndentation: None
+IndentCaseLabels: 'true'
+IndentWrappedFunctionNames: 'false'
+TabWidth: '4'
+IndentWidth: '4'
+AccessModifierOffset: '-4'
+ContinuationIndentWidth: '4'
+ConstructorInitializerIndentWidth: '4'
+ColumnLimit: '0'
+
+# parameters
+BinPackParameters: 'true'
+AllowAllParametersOfDeclarationOnNextLine: 'false'
+ConstructorInitializerAllOnOneLineOrOnePerLine: 'true'
+
+# empty line
+KeepEmptyLinesAtTheStartOfBlocks: 'false'
+MaxEmptyLinesToKeep: '2'
+
+# pointer and reference
+PointerAlignment: Left
+DerivePointerAlignment: 'false'
+
+# space
+SpaceBeforeAssignmentOperators: 'true'
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: 'false'
+SpacesBeforeTrailingComments: '1'
+SpacesInAngles: 'false'
+SpacesInCStyleCastParentheses: 'false'
+SpacesInContainerLiterals: 'false'
+SpacesInParentheses: 'false'
+
+# align
+AlignEscapedNewlinesLeft: 'true'
+AlignTrailingComments: 'true'
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: 'true'
+
+# colon
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: false
+SpaceBeforeRangeBasedForLoopColon: false
+
+# break
+BraceWrapping:
+  AfterClass:      true
+  AfterControlStatement: true
+  AfterEnum:       true
+  AfterFunction:   true
+  AfterNamespace:  false
+  AfterStruct:     true
+  AfterUnion:      true
+  BeforeCatch:     true
+  BeforeElse:      true
+  IndentBraces:    false
+BreakBeforeBraces: Custom
+BreakBeforeBinaryOperators: 'true'
+BreakBeforeTernaryOperators: 'true'
+BreakConstructorInitializersBeforeComma: 'false'
+BreakConstructorInitializers: BeforeColon
+AlwaysBreakBeforeMultilineStrings: 'false'
+AlwaysBreakTemplateDeclarations: 'true'
+AllowShortBlocksOnASingleLine: 'false'
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: 'false'
+AllowShortLoopsOnASingleLine: 'false'
+
+# sort
+SortIncludes: 'true'

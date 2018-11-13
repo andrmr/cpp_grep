@@ -26,14 +26,17 @@ void ThreadPool::stop()
     m_queue.stop();
     for (auto& t: m_threads)
     {
-        if (t.joinable()) t.join();
+        if (t.joinable())
+        {
+            t.join();
+        }
     }
 }
 
 void ThreadPool::Queue::enqueue(Task task)
 {
     {
-        std::lock_guard<std::mutex> g {m_mutex};
+        std::lock_guard g {m_mutex};
         m_tasks.push(task);
     }
 
@@ -42,7 +45,7 @@ void ThreadPool::Queue::enqueue(Task task)
 
 ThreadPool::Task ThreadPool::Queue::dequeue()
 {
-    std::lock_guard<std::mutex> g {m_mutex};
+    std::lock_guard g {m_mutex};
     auto task = m_tasks.front();
     m_tasks.pop();
 
@@ -51,7 +54,7 @@ ThreadPool::Task ThreadPool::Queue::dequeue()
 
 bool ThreadPool::Queue::empty()
 {
-    std::lock_guard<std::mutex> g {m_mutex};
+    std::lock_guard g {m_mutex};
     return m_tasks.empty();
 }
 
@@ -65,8 +68,8 @@ void ThreadPool::Queue::run()
 {
     while (m_continue)
     {
-        std::unique_lock<std::mutex> g {m_condition_mutex};
-        m_condition.wait(g, [this]{ return !empty() || !m_continue; });
+        std::unique_lock g {m_condition_mutex};
+        m_condition.wait(g, [this] { return !empty() || !m_continue; });
         g.unlock();
 
         if (!empty())

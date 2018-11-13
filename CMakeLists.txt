@@ -18,3 +18,5 @@ target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURR
 if (UNIX)
 target_link_libraries(${PROJECT_NAME} stdc++fs)
 endif (UNIX)
+
+include(${CMAKE_CURRENT_LIST_DIR}/WarningFlagsCMakeLists.txt)

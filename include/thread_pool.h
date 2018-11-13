@@ -14,18 +14,20 @@ namespace utils::tp {
 class ThreadPool
 {
 public:
-    using Task = std::function<void()>;
+    using Task = std::function<void()>; //!< Type of object queued and processed by the pool.
 
     /// Constructs a thread pool, with hardware_concurrency() as default number of threads.
+    /// @param num_threads - number of threads
     explicit ThreadPool(unsigned int num_threads = std::thread::hardware_concurrency());
 
     ~ThreadPool();
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool* operator=(const ThreadPool&) & = delete;
-    ThreadPool(ThreadPool&&) = delete;
+    ThreadPool(ThreadPool&&)                   = delete;
     ThreadPool* operator=(ThreadPool&&) & = delete;
 
     /// Queues a task.
+    /// @param task - object to be queued and processed
     void add_task(Task task);
 
     /// Stops the thread pool.
@@ -52,4 +54,4 @@ private:
     std::vector<std::thread> m_threads;
 };
 
-}  // utils::tp namespace
+} // namespace utils::tp
