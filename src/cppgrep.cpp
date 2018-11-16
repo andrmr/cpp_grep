@@ -11,9 +11,68 @@
 namespace fs = std::filesystem;
 using namespace utils;
 
-static constexpr auto DEFAULT_CHUNK_SIZE {262144L}; //!< Default chunk size, in bytes.
-static constexpr auto MAX_PATTERN_SIZE {128U};      //!< Max pattern size, in characters.
+namespace {
+constexpr auto DEFAULT_CHUNK_SIZE {16384U}; //!< Default chunk size, in bytes.
+constexpr auto MAX_PATTERN_SIZE {128U};       //!< Max pattern size, in characters.
+}
 
+/// Checks if a text pattern meets the requirements restrictions.
+bool is_valid(std::string_view pattern)
+{
+    if (pattern.size() > MAX_PATTERN_SIZE)
+    {
+        log::error("Pattern size exceeds the limit: %u.", MAX_PATTERN_SIZE);
+        return false;
+    }
+
+    return true;
+}
+
+bool is_accessible(const fs::path& path)
+{
+    try
+    {
+        if (!fs::exists(path))
+        {
+            log::error("The path doesn't exist!");
+            return false;
+        }
+    }
+    catch (fs::filesystem_error& e)
+    {
+        if (e.code() == std::errc::permission_denied)
+        {
+            log::error("Permission denied when accessing the path!");
+        }
+        else
+        {
+            log::error("Unable to access the path. Reason: %s", e.what());
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+/// Checks if a path is accessible and it's either a file or directory.
+bool is_valid(const fs::path& path)
+{
+    if (!is_accessible(path))
+    {
+        return false;
+    }
+
+    if (!fs::is_regular_file(path) && !fs::is_directory(path))
+    {
+        log::error("The path must be a regular file or a directory!");
+        return false;
+    }
+
+    return true;
+}
+
+/// Searches a text pattern in a file.
 void grep_file(const fs::path& file_path, std::string_view pattern)
 {
     // todo: avoid a thread pool when grepping a single file which fits into a single chunk
@@ -52,6 +111,7 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
     }
 }
 
+/// Recursively iterates a directory and searches a text pattern in each valid file.
 void grep_dir(const fs::path& dir_path, std::string_view pattern)
 {
     // note: range-for recursive iterator throws, if permission is denied
@@ -59,77 +119,35 @@ void grep_dir(const fs::path& dir_path, std::string_view pattern)
     std::error_code ec;
     for (fs::recursive_directory_iterator it {dir_path}, end; it != end; it.increment(ec))
     {
-        if (fs::is_regular_file(it->path()))
+        if (is_valid(it->path()) && fs::is_regular_file(it->path()))
         {
             grep_file(it->path(), pattern);
         }
     }
 }
 
-bool validate_pattern(std::string_view pattern)
+void grep(std::string_view path, std::string_view pattern)
 {
-    if (pattern.size() > MAX_PATTERN_SIZE)
+    if (is_valid(pattern) && is_valid(path))
     {
-        log::error("Pattern size exceeds the limit: %u.", MAX_PATTERN_SIZE);
-        return false;
-    }
-
-    return true;
-}
-
-bool validate_path(const fs::path& path)
-{
-    try
-    {
-        if (!fs::exists(path))
+        if (fs::is_regular_file(path))
         {
-            log::error("The path doesn't exist!");
-            return false;
-        }
-    }
-    catch (fs::filesystem_error& e)
-    {
-        if (e.code() == std::errc::permission_denied)
-        {
-            log::error("Permission denied when accessing the path!");
+            log::info("The path is a regular file. Searching...");
+            grep_file(path, pattern);
         }
         else
         {
-            log::error("Unable to access the path. Reason: %s", e.what());
+            log::info("The path is a directory. Searching recursively...");
+            grep_dir(path, pattern);
         }
-
-        return false;
     }
-
-    if (!fs::is_regular_file(path) && !fs::is_directory(path))
-    {
-        log::error("The path must be a regular file or a directory!");
-        return false;
-    }
-
-    return true;
 }
 
 int main(int argc, char* argv[])
 {
     if (argc == 3)
     {
-        fs::path path {argv[1]};
-        std::string_view pattern {argv[2]};
-
-        if (validate_pattern(pattern) && validate_path(path))
-        {
-            if (fs::is_regular_file(path))
-            {
-                log::info("The path is a regular file. Searching...");
-                grep_file(path, pattern);
-            }
-            else
-            {
-                log::info("The path is a directory. Searching recursively...");
-                grep_dir(path, pattern);
-            }
-        }
+        grep(argv[1], argv[2]);
     }
     else
     {

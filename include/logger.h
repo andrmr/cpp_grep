@@ -30,18 +30,18 @@ std::mutex SyncPrint::m_printMutex {};
 /// @returns unique_ptr buffer with the formatted output
 /// @todo output ERRFMT if arguments are mismatched
 template <typename... Args>
-inline std::unique_ptr<char[]> format(std::string_view format, Args&&... args)
+inline constexpr auto format(std::string_view fmt, Args&&... args) -> std::unique_ptr<char[]>
 {
-    auto size   = 1 + std::snprintf(nullptr, 0, format.data(), args...);
+    auto size   = 1 + std::snprintf(nullptr, 0, fmt.data(), args...);
     auto buffer = std::make_unique<char[]>(size);
-    std::snprintf(buffer.get(), size, format.data(), args...);
+    std::snprintf(buffer.get(), size, fmt.data(), args...);
 
     return buffer;
 }
 
 /// Prints logs based on type and formats the ouput according to printf rules.
 template <typename... Args>
-inline void print_log(std::string_view log_type, std::string_view message, Args&&... args)
+inline constexpr auto print_log(std::string_view log_type, std::string_view message, Args&&... args)
 {
     if constexpr (sizeof...(args) > 0)
     {
@@ -59,7 +59,7 @@ inline void print_log(std::string_view log_type, std::string_view message, Args&
 /// @param message - message or format with additional arguments
 /// @param args - additional arguments used with format
 template <typename... Args>
-inline void error(std::string_view message, Args&&... args)
+inline constexpr auto error(std::string_view message, Args&&... args)
 {
     details::print_log("Error: ", message, std::forward<Args>(args)...);
 }
@@ -68,7 +68,7 @@ inline void error(std::string_view message, Args&&... args)
 /// @param message - message or format with additional arguments
 /// @param args - additional arguments used with format
 template <typename... Args>
-inline void debug(std::string_view message, Args&&... args)
+inline constexpr auto debug(std::string_view message, Args&&... args)
 {
     details::print_log("Debug: ", message, std::forward<Args>(args)...);
 }
@@ -77,7 +77,7 @@ inline void debug(std::string_view message, Args&&... args)
 /// @param message - message or format with additional arguments
 /// @param args - additional arguments used with format
 template <typename... Args>
-inline void info(std::string_view message, Args&&... args)
+inline constexpr auto info(std::string_view message, Args&&... args)
 {
     details::print_log("Info: ", message, std::forward<Args>(args)...);
 }
