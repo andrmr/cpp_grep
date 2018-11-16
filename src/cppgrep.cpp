@@ -13,8 +13,8 @@ using namespace utils;
 
 namespace {
 constexpr auto DEFAULT_CHUNK_SIZE {16384U}; //!< Default chunk size, in bytes.
-constexpr auto MAX_PATTERN_SIZE {128U};       //!< Max pattern size, in characters.
-}
+constexpr auto MAX_PATTERN_SIZE {128U};     //!< Max pattern size, in characters.
+} // namespace
 
 /// Checks if a text pattern meets the requirements restrictions.
 bool is_valid(std::string_view pattern)

@@ -11,6 +11,7 @@ SpaceBeforeCpp11BracedList: 'true'
 # indent
 UseTab: Never
 NamespaceIndentation: None
+IndentPPDirectives: AfterHash
 IndentCaseLabels: 'true'
 IndentWrappedFunctionNames: 'false'
 TabWidth: '4'

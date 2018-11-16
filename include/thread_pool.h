@@ -22,10 +22,12 @@ public:
     explicit ThreadPool(unsigned int num_threads = std::thread::hardware_concurrency());
 
     ~ThreadPool();
+
     ThreadPool(const ThreadPool&) = delete;
-    ThreadPool* operator=(const ThreadPool&) & = delete;
-    ThreadPool(ThreadPool&&)                   = delete;
-    ThreadPool* operator=(ThreadPool&&) & = delete;
+    ThreadPool* operator=(const ThreadPool&) = delete;
+
+    ThreadPool(ThreadPool&&) = delete;
+    ThreadPool* operator=(ThreadPool&&) = delete;
 
     /// Queues a task.
     /// @param task - object to be queued and processed
