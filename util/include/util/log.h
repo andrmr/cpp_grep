@@ -7,7 +7,7 @@
 #include <sstream>
 #include <string_view>
 
-namespace utils::log {
+namespace util::log {
 
 namespace details {
 
@@ -27,7 +27,7 @@ public:
 std::mutex SyncPrint::m_printMutex {};
 
 /// Formats text input according to printf rules.
-/// @returns unique_ptr buffer with the formatted output
+/// @returns buffer holding the formatted output
 /// @todo output ERRFMT if arguments are mismatched
 template <typename... Args>
 inline constexpr auto format(std::string_view fmt, Args&&... args) -> std::unique_ptr<char[]>
@@ -82,4 +82,4 @@ inline constexpr auto info(std::string_view message, Args&&... args)
     details::print_log("Info: ", message, std::forward<Args>(args)...);
 }
 
-} // namespace utils::log
+} // namespace util::log

@@ -1,4 +1,4 @@
-#include "sysutils.h"
+#include "util/sys.h"
 
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #    define UNIX_BUILD
@@ -7,15 +7,16 @@
 #    define WIN32_BUILD
 #    include <windows.h>
 #else
+namespace {
 constexpr auto DEFAULT_PAGESIZE {4096L};
+}
 #endif
 
-/// Retrieves the operating system's pagesize value.
-long pagesize() noexcept
+long util::sys::pagesize() noexcept
 {
 #ifdef UNIX_BUILD
     return sysconf(_SC_PAGESIZE);
-#elif WIN32_BUILD
+#elif defined WIN32_BUILD
     SYSTEM_INFO system_info;
     GetSystemInfo(&system_info);
     return system_info.dwPageSize;

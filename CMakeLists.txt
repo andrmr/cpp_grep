@@ -2,18 +2,19 @@ cmake_minimum_required(VERSION 3.8)
 
 project(cppgrep)
 
+include(${CMAKE_CURRENT_LIST_DIR}/util/CMakeLists.txt)
+
 set(sources
-    ${CMAKE_CURRENT_LIST_DIR}/src/cppgrep.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/thread_pool.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/sysutils.cpp)
+    ${util_sources}
+    ${CMAKE_CURRENT_LIST_DIR}/src/cppgrep.cpp)
 
 set(headers
-    ${CMAKE_CURRENT_LIST_DIR}/include/logger.h
-    ${CMAKE_CURRENT_LIST_DIR}/include/thread_pool.h
-    ${CMAKE_CURRENT_LIST_DIR}/include/sysutils.h)
+    ${util_headers})
 
 add_executable(${PROJECT_NAME} ${sources} ${headers})
-target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>)
+target_include_directories(${PROJECT_NAME}
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/util/include>)
 
 # compiler settings
 if (CMAKE_COMPILER_IS_GNUCC)
@@ -30,7 +31,7 @@ if (CMAKE_COMPILER_IS_GNUCC)
     # disabled warnings
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-format-nonliteral -Wno-sign-conversion -Wno-sign-compare -Wno-ignored-qualifiers")
 elseif (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /std:c++17")
 endif()
 
 # libraries

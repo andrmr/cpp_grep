@@ -1,13 +1,12 @@
-#include "thread_pool.h"
+#include "util/thread_pool.h"
 
-using namespace utils::tp;
+using namespace util::tp;
 
 ThreadPool::ThreadPool(unsigned int num_threads)
-    : m_threads {num_threads}
 {
-    for (auto& t: m_threads)
+    for (size_t i = 0; i < num_threads; ++i)
     {
-        t = std::move(std::thread(&Queue::run, &m_queue));
+        m_threads.emplace_back(&Queue::run, &m_queue);
     }
 }
 

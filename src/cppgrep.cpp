@@ -2,14 +2,13 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
-#include <optional>
 #include <vector>
 
-#include "logger.h"
-#include "thread_pool.h"
+#include "util/log.h"
+#include "util/thread_pool.h"
 
 namespace fs = std::filesystem;
-using namespace utils;
+using namespace util;
 
 namespace {
 constexpr auto DEFAULT_CHUNK_SIZE {16384U}; //!< Default chunk size, in bytes.
@@ -28,6 +27,7 @@ bool is_valid(std::string_view pattern)
     return true;
 }
 
+/// Checks if a path exists and can be accessed.
 bool is_accessible(const fs::path& path)
 {
     try
@@ -46,7 +46,7 @@ bool is_accessible(const fs::path& path)
         }
         else
         {
-            log::error("Unable to access the path. Reason: %s", e.what());
+            log::error("Unable to access the path. Exception: %s", e.what());
         }
 
         return false;
@@ -55,7 +55,7 @@ bool is_accessible(const fs::path& path)
     return true;
 }
 
-/// Checks if a path is accessible and it's either a file or directory.
+/// Checks if a path is a accessible file or directory.
 bool is_valid(const fs::path& path)
 {
     if (!is_accessible(path))
@@ -80,7 +80,7 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
     // todo: move the lambda's logic and the state it captures into a class, and process objects instead
     // todo: limit the total amount of memory to queue as chunks; block the read thread if buffer is full
 
-    static utils::tp::ThreadPool thread_pool {};
+    static util::tp::ThreadPool thread_pool {};
     static const auto searcher   = std::boyer_moore_searcher(pattern.begin(), pattern.end());
     static const auto chunk_size = std::max(static_cast<decltype(DEFAULT_CHUNK_SIZE)>(pattern.size()), DEFAULT_CHUNK_SIZE);
 

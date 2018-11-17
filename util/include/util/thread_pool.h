@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-namespace utils::tp {
+namespace util::tp {
 
 /// Manages a given number of threads and runs a task queue.
 /// Simpler version of my other implementation: https://github.com/andrmr/cpp_thread_pool
@@ -57,4 +57,4 @@ private:
     std::vector<std::thread> m_threads;
 };
 
-} // namespace utils::tp
+} // namespace util::tp
