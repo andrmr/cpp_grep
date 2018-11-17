@@ -82,4 +82,13 @@ inline constexpr auto info(std::string_view message, Args&&... args)
     details::print_log("Info: ", message, std::forward<Args>(args)...);
 }
 
+/// Formats text input according to printf rules.
+/// @returns string_view into a buffer holding the formatted output
+/// @note danger: zero copy, short lifetime.
+template <typename... Args>
+inline constexpr auto string_format(std::string_view fmt, Args&&... args) -> std::string_view
+{
+    return {details::format(fmt, std::forward<Args>(args)...).get()};
+}
+
 } // namespace util::log

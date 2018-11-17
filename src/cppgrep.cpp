@@ -4,69 +4,67 @@
 #include <functional>
 #include <vector>
 
+#include "util/bool_result.h"
 #include "util/log.h"
+#include "util/sys.h"
 #include "util/thread_pool.h"
 
 namespace fs = std::filesystem;
 using namespace util;
+using extended_bool = util::misc::BoolResult;
 
 namespace {
-constexpr auto DEFAULT_CHUNK_SIZE {16384U}; //!< Default chunk size, in bytes.
-constexpr auto MAX_PATTERN_SIZE {128U};     //!< Max pattern size, in characters.
+constexpr auto MAX_PATTERN_SIZE {128U}; //!< Max pattern size, in characters.
+constexpr auto MAX_AFFIX_SIZE {3U};     //!< Max affix size, in characters.
 } // namespace
 
 /// Checks if a text pattern meets the requirements restrictions.
-bool is_valid(std::string_view pattern)
+extended_bool is_valid(std::string_view pattern)
 {
     if (pattern.size() > MAX_PATTERN_SIZE)
     {
-        log::error("Pattern size exceeds the limit: %u.", MAX_PATTERN_SIZE);
-        return false;
+        return {"Pattern size exceeds the limit."};
     }
 
     return true;
 }
 
 /// Checks if a path exists and can be accessed.
-bool is_accessible(const fs::path& path)
+extended_bool is_accessible(const fs::path& path)
 {
     try
     {
         if (!fs::exists(path))
         {
-            log::error("The path doesn't exist!");
-            return false;
+            return {"Path does not exist."};
         }
     }
     catch (fs::filesystem_error& e)
     {
         if (e.code() == std::errc::permission_denied)
         {
-            log::error("Permission denied when accessing the path!");
+            return {"Permission denied when accessing path."};
         }
         else
         {
-            log::error("Unable to access the path. Exception: %s", e.what());
+            return {log::string_format("Unable to access path. Exception: %s", e.what())};
         }
-
-        return false;
     }
 
     return true;
 }
 
 /// Checks if a path is a accessible file or directory.
-bool is_valid(const fs::path& path)
+extended_bool is_valid(const fs::path& path)
 {
-    if (!is_accessible(path))
+    if (auto accessible = is_accessible(path); !accessible)
     {
-        return false;
+        return accessible;
     }
 
     if (!fs::is_regular_file(path) && !fs::is_directory(path))
     {
-        log::error("The path must be a regular file or a directory!");
-        return false;
+        return {"Path is not regular file or directory."};
     }
 
     return true;
@@ -82,15 +80,25 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
 
     static util::tp::ThreadPool thread_pool {};
     static const auto searcher   = std::boyer_moore_searcher(pattern.begin(), pattern.end());
-    static const auto chunk_size = std::max(static_cast<decltype(DEFAULT_CHUNK_SIZE)>(pattern.size()), DEFAULT_CHUNK_SIZE);
+    static const auto chunk_size = std::max(static_cast<decltype(sys::pagesize())>(pattern.size()), sys::pagesize());
+
+    if (fs::file_size(file_path) < pattern.size())
+    {
+        return;
+    }
 
     if (std::ifstream stream {file_path}; stream.good())
     {
-        auto chunk_count {0UL};
-        do
+        for (auto chunk_count {0UL}; true; ++chunk_count)
         {
             auto chunk = std::vector<char>(chunk_size);
             stream.read(&chunk[0], chunk_size);
+
+            // not enough bytes left
+            if (stream.gcount() < pattern.size())
+            {
+                break;
+            }
 
             auto task = [=, chunk {std::move(chunk)}, offset {stream.gcount()}] {
                 for (auto chunk_pos = chunk.begin(), chunk_end = chunk.begin() + offset;
@@ -106,8 +114,7 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
 
             // overlap chunks, in case there's a match in between
             stream.seekg(1 - static_cast<std::streamoff>(pattern.size()), std::ios_base::cur);
-            ++chunk_count;
-        } while (stream.gcount() == chunk_size);
+        }
     }
 }
 
@@ -128,6 +135,12 @@ void grep_dir(const fs::path& dir_path, std::string_view pattern)
 
 void grep(std::string_view path, std::string_view pattern)
 {
+    auto valid_p = is_valid(pattern);
+    if (valid_p.error())
+    {
+        log::info(valid_p.error().value());
+    }
+
     if (is_valid(pattern) && is_valid(path))
     {
         if (fs::is_regular_file(path))

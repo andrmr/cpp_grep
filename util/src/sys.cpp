@@ -1,5 +1,7 @@
 #include "util/sys.h"
 
+namespace util::sys {
+
 #if defined(unix) || defined(__unix__) || defined(__unix)
 #    define UNIX_BUILD
 #    include <unistd.h>
@@ -8,11 +10,11 @@
 #    include <windows.h>
 #else
 namespace {
-constexpr auto DEFAULT_PAGESIZE {4096L};
+constexpr auto DEFAULT_PAGESIZE {4096L}; //!< Default pagesize, in bytes.
 }
 #endif
 
-long util::sys::pagesize() noexcept
+long pagesize() noexcept
 {
 #ifdef UNIX_BUILD
     return sysconf(_SC_PAGESIZE);
@@ -24,3 +26,5 @@ long util::sys::pagesize() noexcept
     return DEFAULT_PAGESIZE;
 #endif
 }
+
+} // namespace util::sys
