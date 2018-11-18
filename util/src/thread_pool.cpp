@@ -1,6 +1,6 @@
 #include "util/thread_pool.h"
 
-using namespace util::tp;
+using namespace util::misc;
 
 ThreadPool::ThreadPool(unsigned int num_threads)
 {

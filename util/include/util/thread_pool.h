@@ -8,14 +8,15 @@
 #include <thread>
 #include <vector>
 
-namespace util::tp {
+namespace util::misc {
 
 /// Manages a given number of threads and runs a task queue.
 /// Simpler version of my other implementation: https://github.com/andrmr/cpp_thread_pool
 class ThreadPool
 {
 public:
-    using Task = std::function<void()>; //!< Type of object queued and processed by the pool.
+    using Ptr  = std::shared_ptr<ThreadPool>; //!< Helper alias for passing around ThreadPool pointers.
+    using Task = std::function<void()>;       //!< Type of object queued and processed by the pool.
 
     /// Constructs a thread pool, with hardware_concurrency() as default number of threads.
     /// @param num_threads - number of threads
@@ -57,4 +58,4 @@ private:
     std::vector<std::thread> m_threads;
 };
 
-} // namespace util::tp
+} // namespace util::misc

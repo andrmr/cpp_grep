@@ -1,25 +1,93 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
-#include <functional>
-#include <vector>
 
-#include "util/bool_result.h"
+#include "cppgrep.h"
+
 #include "util/log.h"
 #include "util/sys.h"
-#include "util/thread_pool.h"
 
 namespace fs = std::filesystem;
 using namespace util;
-using extended_bool = util::misc::BoolResult;
 
-namespace {
-constexpr auto MAX_PATTERN_SIZE {128U}; //!< Max pattern size, in characters.
-constexpr auto MAX_AFFIX_SIZE {3U};     //!< Max affix size, in characters.
-} // namespace
+namespace cppgrep {
+
+/// Implementation namespace of the grep functionality.
+/// Not part of the public interface.
+namespace impl {
+
+/// Finds the proper offset skip range for the search iterator.
+/// Probably not necessary when used with std::boyer_moore_searcher.
+constexpr size_t overlap_offset(std::string_view pattern) noexcept;
+
+/// Checks if the input args are valid.
+opt_err validate_args(std::string_view path, std::string_view pattern) noexcept;
 
 /// Checks if a text pattern meets the requirements restrictions.
-extended_bool is_valid(std::string_view pattern)
+opt_err validate_pattern(std::string_view pattern) noexcept;
+
+/// Checks if a path is an accessible file or directory.
+opt_err validate_path(const fs::path& path) noexcept;
+
+/// Searches a text pattern in a file.
+void grep_file(const fs::path& file_path, std::string_view pattern, util::misc::ThreadPool::Ptr thread_pool = nullptr);
+
+/// Recursively iterates a directory and searches a text pattern in each valid file.
+void grep_dir(const fs::path& dir_path, std::string_view pattern, util::misc::ThreadPool::Ptr thread_pool = nullptr);
+
+} // namespace impl
+
+opt_err grep(std::string_view path, std::string_view pattern, util::misc::ThreadPool::Ptr thread_pool) noexcept
+{
+    if (auto args_check = impl::validate_args(path, pattern); !args_check)
+    {
+        return args_check;
+    }
+
+    if (fs::is_regular_file(path))
+    {
+        log::info("The path is a regular file. Searching...");
+        impl::grep_file(path, pattern, thread_pool);
+    }
+    else
+    {
+        log::info("The path is a directory. Searching recursively...");
+        impl::grep_dir(path, pattern, thread_pool);
+    }
+
+    return true;
+}
+
+constexpr size_t impl::overlap_offset(std::string_view pattern) noexcept
+{
+    auto pos {0};
+
+    auto subpattern = pattern.substr(0, pattern.size() - 1);
+    while (subpattern.size() > 1)
+    {
+        subpattern = pattern.substr(0, subpattern.size() - 1);
+        pos        = pattern.find_last_of(subpattern);
+    }
+
+    return pos > 0 ? pos : pattern.size();
+}
+
+opt_err impl::validate_args(std::string_view path, std::string_view pattern) noexcept
+{
+    if (auto pattern_check = impl::validate_pattern(pattern); !pattern_check)
+    {
+        return pattern_check;
+    }
+
+    if (auto path_check = impl::validate_path(path); !path_check)
+    {
+        return path_check;
+    }
+
+    return true;
+}
+
+opt_err impl::validate_pattern(std::string_view pattern) noexcept
 {
     if (pattern.size() > MAX_PATTERN_SIZE)
     {
@@ -29,8 +97,7 @@ extended_bool is_valid(std::string_view pattern)
     return true;
 }
 
-/// Checks if a path exists and can be accessed.
-extended_bool is_accessible(const fs::path& path)
+opt_err impl::validate_path(const std::filesystem::path& path) noexcept
 {
     try
     {
@@ -38,54 +105,40 @@ extended_bool is_accessible(const fs::path& path)
         {
             return {"Path does not exist."};
         }
-    }
-    catch (fs::filesystem_error& e)
-    {
-        if (e.code() == std::errc::permission_denied)
+
+        if (!fs::is_regular_file(path) && !fs::is_directory(path))
+        {
+            return {"Path is not regular file or directory."};
+        }
+
+#ifdef WIN32_BUILD
+        // NOTE: fs::exists() does not throw if permission is denied on Windows.
+        // There seems to be no clean alternative, other than calling WinAPI.
+        if (!sys::win32_can_read(path.u8string().c_str()))
         {
             return {"Permission denied when accessing path."};
         }
-        else
-        {
-            return {log::string_format("Unable to access path. Exception: %s", e.what())};
-        }
+#endif
+    }
+    catch (fs::filesystem_error& e)
+    {
+        return {fmt::format_str("Unable to access path. Reason: %s", e.what())};
     }
 
     return true;
 }
 
-/// Checks if a path is a accessible file or directory.
-extended_bool is_valid(const fs::path& path)
+void impl::grep_file(const std::filesystem::path& file_path, std::string_view pattern, std::shared_ptr<misc::ThreadPool> thread_pool)
 {
-    if (auto accessible = is_accessible(path); !accessible)
-    {
-        return accessible;
-    }
+    // TODO:
+    //  - avoid a thread pool when grepping a single file which fits into a single chunk
+    //  - restrict search within chunk limits for the prefix/suffix requirement
+    //  - move the lambda's logic and the state it captures into a class, and process objects instead
+    //  - limit the total amount of memory to queue as chunks; block the read thread if buffer is full
 
-    if (!fs::is_regular_file(path) && !fs::is_directory(path))
-    {
-        return {"Path is not regular file or directory."};
-    }
-
-    return true;
-}
-
-/// Searches a text pattern in a file.
-void grep_file(const fs::path& file_path, std::string_view pattern)
-{
-    // todo: avoid a thread pool when grepping a single file which fits into a single chunk
-    // todo: restrict search within chunk limits for the prefix/suffix requirement
-    // todo: move the lambda's logic and the state it captures into a class, and process objects instead
-    // todo: limit the total amount of memory to queue as chunks; block the read thread if buffer is full
-
-    static util::tp::ThreadPool thread_pool {};
     static const auto searcher   = std::boyer_moore_searcher(pattern.begin(), pattern.end());
     static const auto chunk_size = std::max(static_cast<decltype(sys::pagesize())>(pattern.size()), sys::pagesize());
-
-    if (fs::file_size(file_path) < pattern.size())
-    {
-        return;
-    }
+    static const auto increment  = overlap_offset(pattern);
 
     if (std::ifstream stream {file_path}; stream.good())
     {
@@ -94,7 +147,7 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
             auto chunk = std::vector<char>(chunk_size);
             stream.read(&chunk[0], chunk_size);
 
-            // not enough bytes left
+            // not enough bytes read; small file or eof
             if (stream.gcount() < pattern.size())
             {
                 break;
@@ -103,14 +156,21 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
             auto task = [=, chunk {std::move(chunk)}, offset {stream.gcount()}] {
                 for (auto chunk_pos = chunk.begin(), chunk_end = chunk.begin() + offset;
                      chunk_pos = std::search(chunk_pos, chunk_end, searcher), chunk_pos != chunk_end;
-                     chunk_pos += pattern.size())
+                     chunk_pos += increment)
                 {
                     auto match_pos = (chunk_count * chunk_size) + (chunk_pos - chunk.begin());
                     log::info("Found match at: %s, %d", file_path.u8string().c_str(), match_pos);
                 }
             };
 
-            thread_pool.add_task(task);
+            if (thread_pool)
+            {
+                thread_pool->add_task(task);
+            }
+            else
+            {
+                task();
+            }
 
             // overlap chunks, in case there's a match in between
             stream.seekg(1 - static_cast<std::streamoff>(pattern.size()), std::ios_base::cur);
@@ -118,56 +178,27 @@ void grep_file(const fs::path& file_path, std::string_view pattern)
     }
 }
 
-/// Recursively iterates a directory and searches a text pattern in each valid file.
-void grep_dir(const fs::path& dir_path, std::string_view pattern)
+void impl::grep_dir(const std::filesystem::path& dir_path, std::string_view pattern, std::shared_ptr<misc::ThreadPool> thread_pool)
 {
-    // note: range-for recursive iterator throws, if permission is denied
+    // NOTE: After the user-provided directory path is validated for read access,
+    // there is no requirement to report/handle denied access on contained entries.
+    // The non accessible entries will be skipped, without informing the user.
 
     std::error_code ec;
-    for (fs::recursive_directory_iterator it {dir_path}, end; it != end; it.increment(ec))
+    for (fs::recursive_directory_iterator it {dir_path, ec}, end; it != end; it.increment(ec))
     {
-        if (is_valid(it->path()) && fs::is_regular_file(it->path()))
+        if (ec)
         {
-            grep_file(it->path(), pattern);
+            it.pop();
+            continue;
+        }
+
+        // fstream will invalidate bad files after this point
+        if (fs::is_regular_file(it->path()))
+        {
+            grep_file(it->path(), pattern, thread_pool);
         }
     }
 }
 
-void grep(std::string_view path, std::string_view pattern)
-{
-    auto valid_p = is_valid(pattern);
-    if (valid_p.error())
-    {
-        log::info(valid_p.error().value());
-    }
-
-    if (is_valid(pattern) && is_valid(path))
-    {
-        if (fs::is_regular_file(path))
-        {
-            log::info("The path is a regular file. Searching...");
-            grep_file(path, pattern);
-        }
-        else
-        {
-            log::info("The path is a directory. Searching recursively...");
-            grep_dir(path, pattern);
-        }
-    }
-}
-
-int main(int argc, char* argv[])
-{
-    if (argc == 3)
-    {
-        grep(argv[1], argv[2]);
-    }
-    else
-    {
-        log::error("Two arguments are required!\n"
-                   "Usage: cppgrep <path> <string>, where <path> is a file or "
-                   "directory, and <string> is the text you're looking for.");
-    }
-
-    return 0;
-}
+} // namespace cppgrep
