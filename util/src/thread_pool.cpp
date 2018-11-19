@@ -32,6 +32,14 @@ void ThreadPool::stop()
     }
 }
 
+ThreadPool::Queue::~Queue()
+{
+    if (m_continue)
+    {
+        this->stop();
+    }
+}
+
 void ThreadPool::Queue::enqueue(Task task)
 {
     {
@@ -42,15 +50,6 @@ void ThreadPool::Queue::enqueue(Task task)
     m_condition.notify_one();
 }
 
-ThreadPool::Task ThreadPool::Queue::dequeue()
-{
-    std::lock_guard g {m_mutex};
-    auto task = m_tasks.front();
-    m_tasks.pop();
-
-    return task;
-}
-
 bool ThreadPool::Queue::empty()
 {
     std::lock_guard g {m_mutex};
@@ -59,6 +58,14 @@ bool ThreadPool::Queue::empty()
 
 void ThreadPool::Queue::stop()
 {
+    // block until queue is empty
+    if (!empty() && m_continue)
+    {
+        std::unique_lock lk {m_condition_mutex};
+        m_condition.wait(lk, [this] { return empty(); });
+        lk.unlock();
+    }
+
     m_continue = false;
     m_condition.notify_all();
 }
@@ -67,14 +74,23 @@ void ThreadPool::Queue::run()
 {
     while (m_continue)
     {
-        std::unique_lock g {m_condition_mutex};
-        m_condition.wait(g, [this] { return !empty() || !m_continue; });
-        g.unlock();
+        std::unique_lock lk {m_condition_mutex};
+        m_condition.wait(lk, [this] { return !empty() || !m_continue; });
+        lk.unlock();
 
         if (!empty())
         {
-            auto task = dequeue();
-            task();
+            {
+                std::lock_guard g {m_mutex};
+                if (!m_tasks.empty())
+                {
+                    auto task = m_tasks.front();
+                    m_tasks.pop();
+                    task();
+                }
+            }
+
+            m_condition.notify_one();
         }
     }
 }

@@ -45,6 +45,7 @@ SpacesInContainerLiterals: 'false'
 SpacesInParentheses: 'false'
 
 # align
+AlignOperands: 'true'
 AlignEscapedNewlinesLeft: 'true'
 AlignTrailingComments: 'true'
 AlignAfterOpenBracket: Align

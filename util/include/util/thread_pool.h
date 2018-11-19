@@ -47,8 +47,9 @@ private:
         std::atomic_bool m_continue {true};
 
     public:
+        ~Queue();
+
         void enqueue(Task task);
-        Task dequeue();
         bool empty();
         void stop();
         void run();

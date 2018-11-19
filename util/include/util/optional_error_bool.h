@@ -10,13 +10,18 @@ namespace util::misc {
 class OptionalErrorBool
 {
 public:
-    OptionalErrorBool(std::string_view error_msg);
+    ~OptionalErrorBool() noexcept = default;
+    OptionalErrorBool() noexcept  = default;
+    OptionalErrorBool(const OptionalErrorBool&) noexcept;
+    OptionalErrorBool& operator=(const OptionalErrorBool& value) & noexcept;
+    OptionalErrorBool(OptionalErrorBool&&) noexcept;
+    OptionalErrorBool& operator=(OptionalErrorBool&&) noexcept;
 
-    OptionalErrorBool(std::string&& error_msg);
-
-    OptionalErrorBool(const char* error_msg);
-
-    OptionalErrorBool(bool value);
+    // non-explicit constructors for ease of use
+    OptionalErrorBool(std::string_view error_msg) noexcept;
+    OptionalErrorBool(std::string&& error_msg) noexcept;
+    OptionalErrorBool(const char* error_msg) noexcept;
+    OptionalErrorBool(bool value) noexcept;
 
     OptionalErrorBool& operator=(bool value) & noexcept;
 
