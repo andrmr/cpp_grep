@@ -4,6 +4,8 @@ using namespace util::misc;
 
 ThreadPool::ThreadPool(unsigned int num_threads)
 {
+    // TODO: create new thread only if the queue is full when adding task
+
     for (size_t i = 0; i < num_threads; ++i)
     {
         m_threads.emplace_back(&Queue::run, &m_queue);
@@ -78,19 +80,22 @@ void ThreadPool::Queue::run()
         m_condition.wait(lk, [this] { return !empty() || !m_continue; });
         lk.unlock();
 
-        if (!empty())
+        // avoids optional or default constructed object
+        // and doesn't lock during execution of task
+        std::unique_lock g {m_mutex};
+        g.lock();
+        if (!m_tasks.empty())
         {
-            {
-                std::lock_guard g {m_mutex};
-                if (!m_tasks.empty())
-                {
-                    auto task = m_tasks.front();
-                    m_tasks.pop();
-                    task();
-                }
-            }
+            auto task = m_tasks.front();
+            m_tasks.pop();
+            g.unlock();
 
             m_condition.notify_one();
+            task();
+        }
+        else
+        {
+            g.unlock();
         }
     }
 }
