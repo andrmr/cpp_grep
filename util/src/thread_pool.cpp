@@ -83,7 +83,6 @@ void ThreadPool::Queue::run()
         // avoids optional or default constructed object
         // and doesn't lock during execution of task
         std::unique_lock g {m_mutex};
-        g.lock();
         if (!m_tasks.empty())
         {
             auto task = m_tasks.front();
@@ -92,10 +91,6 @@ void ThreadPool::Queue::run()
 
             m_condition.notify_one();
             task();
-        }
-        else
-        {
-            g.unlock();
         }
     }
 }

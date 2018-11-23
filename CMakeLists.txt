@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
+set(CMAKE_CXX_STANDARD 17)
 
 project(cppgrep)
 
@@ -6,12 +7,12 @@ include(${CMAKE_CURRENT_LIST_DIR}/util/CMakeLists.txt)
 
 set(sources
     ${util_sources}
-    ${CMAKE_CURRENT_LIST_DIR}/src/cppgrep.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/grep.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/main.cpp)
 
 set(headers
     ${util_headers}
-    ${CMAKE_CURRENT_LIST_DIR}/include/cppgrep.h)
+    ${CMAKE_CURRENT_LIST_DIR}/include/grep.h)
 
 add_executable(${PROJECT_NAME} ${sources} ${headers})
 target_include_directories(${PROJECT_NAME}

@@ -60,7 +60,7 @@ OptionalErrorBool& OptionalErrorBool::operator=(bool value) & noexcept
     {
         m_value = value;
 
-        // true doesn't don't carry error message
+        // true doesn't carry error message
         if (value && m_error_msg.has_value())
         {
             m_error_msg = std::nullopt;

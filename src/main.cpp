@@ -1,16 +1,24 @@
-#include "cppgrep.h"
+#include "grep.h"
 #include "util/log.h"
+
+using cppgrep::Grep;
 
 int main(int argc, char* argv[])
 {
-    constexpr auto multithreaded {true};
+    const auto threads {std::thread::hardware_concurrency()};
 
     if (argc == 3)
     {
-        auto thread_pool = multithreaded ? std::make_shared<util::misc::ThreadPool>() : nullptr;
-        if (auto err = cppgrep::grep(argv[1], argv[2], thread_pool); !err)
+        try
         {
-            util::log::error(err.error().value_or("Unknown error occured when calling cppgrep."));
+            auto grep  = Grep::build_grep(argv[1], argv[2], threads);
+            auto count = grep.search();
+
+            util::log::info("Found %u results.", count);
+        }
+        catch (std::invalid_argument& e)
+        {
+            util::log::error(e.what());
         }
     }
     else

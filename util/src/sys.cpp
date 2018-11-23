@@ -31,12 +31,12 @@ long pagesize() noexcept
 #    include <securitybaseapi.h>
 bool win32_can_read(const char* path) noexcept
 {
-    // NOTE: implementation from http://blog.aaronballman.com/2011/08/how-to-check-access-rights/
-    // TODO: use generic C++ and STL where possible
+    // NOTE: based onimplementation from http://blog.aaronballman.com/2011/08/how-to-check-access-rights/
+    // TODO: use generic C++ and STL where possible; replace malloc with unique_ptr maybe
 
+    auto bRet {false};
     DWORD genericAccessRights = GENERIC_READ;
 
-    bool bRet    = false;
     DWORD length = 0;
     if (!GetFileSecurity(path, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, nullptr, 0, &length) && ERROR_INSUFFICIENT_BUFFER == ::GetLastError())
     {

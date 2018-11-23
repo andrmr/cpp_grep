@@ -41,9 +41,9 @@ namespace log {
 
 namespace impl {
 
-static std::mutex print_mutex {};
+static std::mutex print_mutex {}; //!< Used to synchronize stdout.
 
-/// Prints logs based on type and formats the ouput according to printf rules.
+/// Prints logs based on type and formats the output according to printf rules.
 template <typename... Args>
 inline auto print_log(std::string_view log_type, std::string_view message, Args&&... args)
 {
