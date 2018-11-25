@@ -20,7 +20,7 @@ public:
 
     /// Constructs a thread pool, with hardware_concurrency() as default number of threads.
     /// @param max_threads - number of threads
-    explicit ThreadPool(unsigned int max_tasks, unsigned int max_threads = std::thread::hardware_concurrency()) noexcept;
+    explicit ThreadPool(uint64_t max_tasks, uint32_t max_threads = std::thread::hardware_concurrency()) noexcept;
 
     ~ThreadPool() noexcept;
 
@@ -46,12 +46,12 @@ private:
         std::mutex m_condition_mutex {};
         std::condition_variable m_condition {};
         std::atomic_bool m_continue {true};
-        unsigned int m_max_tasks {0};
+        uint64_t m_max_tasks {0};
 
     public:
         ~Queue() noexcept;
 
-        Queue(unsigned int max_tasks) noexcept;
+        Queue(uint64_t max_tasks) noexcept;
 
         Queue(const Queue&) = delete;
         Queue& operator=(const Queue&) = delete;
@@ -70,7 +70,7 @@ private:
 
     Queue m_queue;
     std::vector<std::thread> m_threads;
-    unsigned int m_max_threads {0};
+    uint32_t m_max_threads {0};
 };
 
 } // namespace util::misc

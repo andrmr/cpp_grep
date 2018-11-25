@@ -10,11 +10,11 @@ namespace util::sys {
 
 #if !(defined UNIX_BUILD || defined WIN32_BUILD)
 namespace {
-constexpr auto DEFAULT_PAGESIZE {4096L}; //!< Default pagesize, in bytes.
+constexpr auto DEFAULT_PAGESIZE {4096UL}; //!< Default pagesize, in bytes.
 }
 #endif
 
-long pagesize() noexcept
+unsigned long long pagesize() noexcept
 {
 #ifdef UNIX_BUILD
     return sysconf(_SC_PAGESIZE);

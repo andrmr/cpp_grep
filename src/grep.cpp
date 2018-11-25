@@ -38,7 +38,7 @@ opt_err validate_path(const fs::path& path) noexcept;
 
 } // namespace impl
 
-Grep Grep::build_grep(std::string_view path, std::string_view pattern, unsigned int max_memory, unsigned int max_threads)
+Grep Grep::build_grep(std::string_view path, std::string_view pattern, uint64_t max_memory, uint32_t max_threads)
 {
     if (auto args_check = impl::validate_args(path, pattern); !args_check)
     {
@@ -48,17 +48,17 @@ Grep Grep::build_grep(std::string_view path, std::string_view pattern, unsigned 
     return Grep(path, pattern, max_memory, max_threads);
 }
 
-Grep::Grep(std::string_view path, std::string_view pattern, unsigned int max_memory, unsigned int max_threads)
+Grep::Grep(std::string_view path, std::string_view pattern, uint64_t max_memory, uint32_t max_threads)
     : m_path {path},
       m_pattern {pattern},
       m_searcher {pattern.begin(), pattern.end()},
-      m_chunk_size {std::max<unsigned long>(sys::pagesize(), pattern.size())},
-      m_increment {static_cast<unsigned long>(impl::overlap_offset(pattern))},
+      m_chunk_size {std::max(sys::pagesize(), pattern.size())},
+      m_increment {impl::overlap_offset(pattern)},
       m_threadpool {max_threads ? std::make_unique<util::misc::ThreadPool>(max_memory / m_chunk_size, max_threads) : nullptr}
 {
 }
 
-unsigned long Grep::search() noexcept
+uint64_t Grep::search() noexcept
 {
     if (fs::is_regular_file(m_path))
     {
@@ -93,14 +93,14 @@ void Grep::grep_file(const std::filesystem::path& file_path, bool single_file)
             auto chunk = std::vector<char>(m_chunk_size);
             stream.read(&chunk[0], m_chunk_size);
 
+            // final chunk may not be a full read so don't rely on chunk.end() but rather on bytes last read
+            size_t offset = stream.gcount() ? stream.gcount() : 0U;
+
             // reached eof
-            if (stream.gcount() < m_pattern.size())
+            if (offset < m_pattern.size())
             {
                 return;
             }
-
-            // final chunk may not be a full read so don't rely on chunk.end() but rather on bytes last read
-            auto offset = stream.gcount();
 
             // don't queue to thread pool if grepping a single small file or when not using a pool
             auto threaded = m_threadpool && !(single_file && fs::file_size(file_path) < m_chunk_size);
@@ -142,18 +142,18 @@ void Grep::grep_dir(const std::filesystem::path& dir_path)
         {
             // fstream will validate files after this point
             if (fs::is_regular_file(it->path()))
-			{
+            {
                 grep_file(it->path());
-			}
+            }
         }
-        catch (fs::filesystem_error& e)
+        catch (fs::filesystem_error&)
         {
             continue;
         }
     }
 }
 
-void Grep::grep_chunk(const std::vector<char>& chunk, unsigned long offset, unsigned long chunk_count, std::shared_ptr<const std::string> file_name)
+void Grep::grep_chunk(const std::vector<char>& chunk, size_t offset, uint64_t chunk_count, std::shared_ptr<const std::string> file_name)
 {
     for (auto chunk_pos = chunk.begin(), read_end = chunk.begin() + offset;
          chunk_pos = std::search(chunk_pos, read_end, m_searcher), chunk_pos != read_end;
@@ -168,7 +168,7 @@ void Grep::grep_chunk(const std::vector<char>& chunk, unsigned long offset, unsi
         auto get_prefix = boundary ? impl::replace_tab_and_newline({&chunk[(boundary - safe_dist)], safe_dist}) : impl::affix {};
 
         boundary += m_pattern.size();
-        safe_dist       = std::min<int>(static_cast<size_t>(offset - boundary), MAX_AFFIX_SIZE);
+        safe_dist       = std::min<size_t>(static_cast<size_t>(offset - boundary), MAX_AFFIX_SIZE);
         auto get_suffix = boundary < offset ? impl::replace_tab_and_newline({&chunk[boundary], MAX_AFFIX_SIZE}) : impl::affix {};
 
         auto prefix = std::holds_alternative<std::string_view>(get_prefix) ? std::get<std::string_view>(get_prefix)
@@ -219,7 +219,7 @@ impl::affix impl::replace_tab_and_newline(std::string_view affix) noexcept
 
 constexpr size_t impl::overlap_offset(std::string_view pattern) noexcept
 {
-    auto position {0};
+    size_t position {0};
 
     auto subpattern = pattern.substr(0, pattern.size() - 1);
     while (subpattern.size() > 1)

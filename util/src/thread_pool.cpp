@@ -2,7 +2,7 @@
 
 using namespace util::misc;
 
-ThreadPool::ThreadPool(unsigned int max_tasks, unsigned int max_threads) noexcept
+ThreadPool::ThreadPool(uint64_t max_tasks, uint32_t max_threads) noexcept
     : m_queue {max_tasks}, m_max_threads {max_threads}
 {
     // NOTE: two options: start all threads here OR start threads gradually in add_task()
@@ -21,7 +21,7 @@ ThreadPool::~ThreadPool() noexcept
 void ThreadPool::try_add_task(Task task) noexcept
 {
     // add a new thread when one of these conditions is met
-	// 1, pool is empty or 2, pool is not at full capacity AND the queue is saturated
+    // 1, pool is empty or 2, pool is not at full capacity AND the queue is saturated
     if (m_threads.empty() || (m_threads.size() < m_max_threads && m_queue.full()))
     {
         m_threads.emplace_back(&Queue::run, &m_queue);
@@ -50,7 +50,7 @@ ThreadPool::Queue::~Queue() noexcept
     }
 }
 
-ThreadPool::Queue::Queue(unsigned int max_tasks) noexcept
+ThreadPool::Queue::Queue(uint64_t max_tasks) noexcept
     : m_max_tasks {max_tasks}
 {
 }
