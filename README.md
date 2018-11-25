@@ -13,3 +13,11 @@ Grep-like implementation in C++ 17
 
 ### Implementation
 - strictly C++ STL
+
+## Tested on:
+- MSVC Community 2017 15.8.6 on Windows 10 64-bit
+- Clang 7 on Ubuntu 18.04 64-bit
+- GCC 8 on Ubuntu 18.04 64-bit
+
+## Known limitations and issues:
+- std::filesystem locale and UTF filepaths
