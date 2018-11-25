@@ -49,10 +49,10 @@ Grep Grep::build_grep(std::string_view path, std::string_view pattern, uint64_t 
 }
 
 Grep::Grep(std::string_view path, std::string_view pattern, uint64_t max_memory, uint32_t max_threads)
-    : m_path {path},
-      m_pattern {pattern},
+    : m_pattern {pattern},
+      m_path {path},
       m_searcher {pattern.begin(), pattern.end()},
-      m_chunk_size {std::max(sys::pagesize(), pattern.size())},
+      m_chunk_size {std::max<size_t>(sys::pagesize(), pattern.size())},
       m_increment {impl::overlap_offset(pattern)},
       m_threadpool {max_threads ? std::make_unique<util::misc::ThreadPool>(max_memory / m_chunk_size, max_threads) : nullptr}
 {
@@ -71,6 +71,11 @@ uint64_t Grep::search() noexcept
         grep_dir(m_path);
     }
 
+    if (m_threadpool)
+    {
+        m_threadpool->stop();
+    }
+
     return m_result_count;
 }
 
@@ -82,11 +87,11 @@ void Grep::grep_file(const std::filesystem::path& file_path, bool single_file)
         return;
     }
 
-    if (std::ifstream stream {file_path, std::ios::binary}; stream.good())
+    if (std::ifstream stream {file_path.string().c_str(), std::ios::binary}; stream.good())
     {
         // need shared ptr for multithreaded chunks that use same filename
         // this is not optimal for single thread or single file use case
-        auto file_name = std::make_shared<std::string>(file_path.u8string());
+        auto file_name = std::make_shared<const std::string>(file_path.string());
 
         for (auto chunk_count {0UL}; true; ++chunk_count)
         {
@@ -165,10 +170,10 @@ void Grep::grep_chunk(const std::vector<char>& chunk, size_t offset, uint64_t ch
         // get affixes; corner-case: doesn't work with affixes in-between chunks
         auto boundary   = static_cast<size_t>(std::distance(chunk.begin(), chunk_pos));
         auto safe_dist  = std::min<size_t>(boundary, MAX_AFFIX_SIZE);
-        auto get_prefix = boundary ? impl::replace_tab_and_newline({&chunk[(boundary - safe_dist)], safe_dist}) : impl::affix {};
+        auto get_prefix = boundary > 1 ? impl::replace_tab_and_newline({&chunk[(boundary - safe_dist)], safe_dist}) : impl::affix {};
 
         boundary += m_pattern.size();
-        safe_dist       = std::min<size_t>(static_cast<size_t>(offset - boundary), MAX_AFFIX_SIZE);
+        safe_dist       = std::min<size_t>(offset - boundary, MAX_AFFIX_SIZE);
         auto get_suffix = boundary < offset ? impl::replace_tab_and_newline({&chunk[boundary], MAX_AFFIX_SIZE}) : impl::affix {};
 
         auto prefix = std::holds_alternative<std::string_view>(get_prefix) ? std::get<std::string_view>(get_prefix)
@@ -177,10 +182,7 @@ void Grep::grep_chunk(const std::vector<char>& chunk, size_t offset, uint64_t ch
         auto suffix = std::holds_alternative<std::string_view>(get_suffix) ? std::get<std::string_view>(get_suffix)
                                                                            : std::get<std::string>(get_suffix);
 
-        // color format is not displayed correctly on all terminals
-        std::string output = fmt::format_str("%s(%d): %.*s", file_name->c_str(), result_pos, prefix.size(), prefix)
-                             + fmt::format_str("\033[1;32m%s\033[0m", m_pattern.c_str())
-                             + fmt::format_str("%.*s", suffix.size(), suffix);
+        std::string output = fmt::format_str("%s(%d): %.*s\033[1;32m%s\033[0m%.*s", file_name->c_str(), result_pos, prefix.size(), prefix.data(), m_pattern.c_str(), suffix.size(), suffix.data());
         log::info(output.c_str());
     }
 }

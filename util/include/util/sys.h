@@ -9,7 +9,7 @@
 namespace util::sys {
 
 /// Retrieves the operating system's pagesize value.
-unsigned long long pagesize() noexcept;
+unsigned long pagesize() noexcept;
 
 #ifdef WIN32_BUILD
 /// Provides a reliable read-right check on Windows.

@@ -24,7 +24,7 @@ public:
     /// @throws std::invalid_arguments
     static Grep build_grep(std::string_view path, std::string_view pattern, uint64_t max_memory, uint32_t max_threads = 0);
 
-    /// Starts the search on a Grep object.
+    /// Starts the search on a Grep object. Blocks until all results are counted.
     /// @returns the number of results.
     uint64_t search() noexcept;
 

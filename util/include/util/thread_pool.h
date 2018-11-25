@@ -11,7 +11,7 @@
 namespace util::misc {
 
 /// Manages a given number of threads and runs a task queue.
-/// Simpler version of my other implementation: https://github.com/andrmr/cpp_thread_pool
+/// Simpler version of my std::future based implementation: https://github.com/andrmr/cpp_thread_pool
 class ThreadPool
 {
 public:
@@ -19,7 +19,8 @@ public:
     using Task = std::function<void()>;       //!< Type of object queued and processed by the pool.
 
     /// Constructs a thread pool, with hardware_concurrency() as default number of threads.
-    /// @param max_threads - number of threads
+    /// @param max_threads - max number of threads
+    /// @param max_tasks - max number of queued tasks
     explicit ThreadPool(uint64_t max_tasks, uint32_t max_threads = std::thread::hardware_concurrency()) noexcept;
 
     ~ThreadPool() noexcept;
@@ -31,7 +32,7 @@ public:
     ThreadPool(ThreadPool&&) = delete;
     ThreadPool* operator=(ThreadPool&&) = delete;
 
-    /// Queues a task if the queue is not full. Otherwise, blocks until the queue has slots.
+    /// Queues a task if the queue is not full. Otherwise, blocks until the queue has available slots.
     /// @param task - object to be queued and processed
     void try_add_task(Task task) noexcept;
 

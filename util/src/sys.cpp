@@ -14,7 +14,7 @@ constexpr auto DEFAULT_PAGESIZE {4096UL}; //!< Default pagesize, in bytes.
 }
 #endif
 
-unsigned long long pagesize() noexcept
+unsigned long pagesize() noexcept
 {
 #ifdef UNIX_BUILD
     return sysconf(_SC_PAGESIZE);
@@ -31,7 +31,7 @@ unsigned long long pagesize() noexcept
 #    include <securitybaseapi.h>
 bool win32_can_read(const char* path) noexcept
 {
-    // NOTE: based onimplementation from http://blog.aaronballman.com/2011/08/how-to-check-access-rights/
+    // NOTE: based on implementation from http://blog.aaronballman.com/2011/08/how-to-check-access-rights/
     // TODO: use generic C++ and STL where possible; replace malloc with unique_ptr
 
     auto bRet {false};

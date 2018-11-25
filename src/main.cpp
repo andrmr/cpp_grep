@@ -6,7 +6,7 @@ using cppgrep::Grep;
 int main(int argc, char* argv[])
 {
     const auto max_threads {std::thread::hardware_concurrency()};
-    const auto max_memory {1073741824U}; // 1GB RAM (max amount of buffers queued to thread pool)
+    const uint64_t max_memory {1073741824}; // 1GB RAM (max amount of buffers queued to thread pool)
 
     if (argc == 3)
     {
@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
             auto grep  = Grep::build_grep(argv[1], argv[2], max_memory, max_threads);
             auto count = grep.search();
 
-            util::log::info("Found %u results.", count);
+            util::log::info("Found %lu results.", count);
         }
         catch (std::invalid_argument& e)
         {
