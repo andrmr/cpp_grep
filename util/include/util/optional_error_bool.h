@@ -23,8 +23,10 @@ public:
     OptionalErrorBool(const char* error_msg) noexcept;
     OptionalErrorBool(bool value) noexcept;
 
+    /// Allows OptionalErrorBool to be assigned a bool.
     OptionalErrorBool& operator=(bool value) & noexcept;
 
+    /// Allows OptionalErrorBool to be interrogated as bool.
     operator bool() const noexcept;
 
     /// Returns reference to the optional error message.

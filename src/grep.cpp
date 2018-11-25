@@ -38,23 +38,23 @@ opt_err validate_path(const fs::path& path) noexcept;
 
 } // namespace impl
 
-Grep Grep::build_grep(std::string_view path, std::string_view pattern, unsigned int threads)
+Grep Grep::build_grep(std::string_view path, std::string_view pattern, unsigned int max_memory, unsigned int max_threads)
 {
     if (auto args_check = impl::validate_args(path, pattern); !args_check)
     {
         throw std::invalid_argument {args_check.error().value_or("Unknown error occured when validating arguments.")};
     }
 
-    return Grep(path, pattern, threads);
+    return Grep(path, pattern, max_memory, max_threads);
 }
 
-Grep::Grep(std::string_view path, std::string_view pattern, unsigned int threads)
+Grep::Grep(std::string_view path, std::string_view pattern, unsigned int max_memory, unsigned int max_threads)
     : m_path {path},
       m_pattern {pattern},
       m_searcher {pattern.begin(), pattern.end()},
-      m_chunk_size {std::max<size_t>(sys::pagesize(), pattern.size())},
-      m_increment {impl::overlap_offset(pattern)},
-      m_threadpool {threads ? std::make_unique<util::misc::ThreadPool>(threads) : nullptr}
+      m_chunk_size {std::max<unsigned long>(sys::pagesize(), pattern.size())},
+      m_increment {static_cast<unsigned long>(impl::overlap_offset(pattern))},
+      m_threadpool {max_threads ? std::make_unique<util::misc::ThreadPool>(max_memory / m_chunk_size, max_threads) : nullptr}
 {
 }
 
@@ -76,10 +76,6 @@ unsigned long Grep::search() noexcept
 
 void Grep::grep_file(const std::filesystem::path& file_path, bool single_file)
 {
-    // TODO:
-    //  - don't start all the thread pool threads at once
-    //  - limit the amount of queued chunks; consider blocking thread in add_task if queue is full
-
     // skip file if logical size is too small
     if (fs::file_size(file_path) < m_pattern.size())
     {
@@ -89,7 +85,7 @@ void Grep::grep_file(const std::filesystem::path& file_path, bool single_file)
     if (std::ifstream stream {file_path, std::ios::binary}; stream.good())
     {
         // need shared ptr for multithreaded chunks that use same filename
-        // this isn't optimal for single thread or single file use case
+        // this is not optimal for single thread or single file use case
         auto file_name = std::make_shared<std::string>(file_path.u8string());
 
         for (auto chunk_count {0UL}; true; ++chunk_count)
@@ -114,7 +110,7 @@ void Grep::grep_file(const std::filesystem::path& file_path, bool single_file)
                     grep_chunk(chunk, offset, chunk_count, file_name);
                 };
 
-                m_threadpool->add_task(task);
+                m_threadpool->try_add_task(task);
             }
             else
             {
@@ -142,15 +138,22 @@ void Grep::grep_dir(const std::filesystem::path& dir_path)
             continue;
         }
 
-        // fstream will validate files after this point
-        if (fs::is_regular_file(it->path()))
+        try
         {
-            grep_file(it->path());
+            // fstream will validate files after this point
+            if (fs::is_regular_file(it->path()))
+			{
+                grep_file(it->path());
+			}
+        }
+        catch (fs::filesystem_error& e)
+        {
+            continue;
         }
     }
 }
 
-void Grep::grep_chunk(const std::vector<char>& chunk, unsigned long offset, unsigned long chunk_count, std::shared_ptr<std::string> file_name)
+void Grep::grep_chunk(const std::vector<char>& chunk, unsigned long offset, unsigned long chunk_count, std::shared_ptr<const std::string> file_name)
 {
     for (auto chunk_pos = chunk.begin(), read_end = chunk.begin() + offset;
          chunk_pos = std::search(chunk_pos, read_end, m_searcher), chunk_pos != read_end;
